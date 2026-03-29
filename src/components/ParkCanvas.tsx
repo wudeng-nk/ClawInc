@@ -104,7 +104,7 @@ export default function ParkCanvas() {
         pointerEvents: 'none',
       }}>
         <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 1 }}>云爪孵化器</div>
-        <div style={{ fontSize: 12, color: '#6b6b8a', marginTop: 2 }}>ClawInc Park · Phase 1</div>
+        <div style={{ fontSize: 12, color: '#6b6b8a', marginTop: 2 }}>ClawInc Park · Phase 2</div>
       </div>
 
       {/* Zoom indicator */}

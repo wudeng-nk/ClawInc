@@ -1,116 +1,127 @@
-# Feature Specification: ClawInc 云爪孵化器 — Phase 1 MVP
+# Feature Specification: ClawInc 云爪孵化器 — Phase 2
 
-**Feature Branch**: `feat/phase1-mvp`  
-**Created**: 2026-03-24  
-**Status**: Draft  
-**Input**: ClawInc 云爪孵化器 product design doc (v2.0, 2026-03-24) + React + Vite + Tauri tech stack
+**Feature Branch**: `feat/phase2-persistence`  
+**Created**: 2026-03-29  
+**Status**: In Progress  
+**Input**: Phase 1 MVP 已完成 ✅ + Phase 2 用户反馈需求
 
 ---
 
-## User Scenarios & Testing
+## Phase 1 回顾
 
-### User Story 1 — Enter Park and See Tables (Priority: P1)
+已完成功能：
+- ✅ 暗色网格画布 + 拖拽平移/滚轮缩放
+- ✅ 10张预设桌子（空桌虚线 + 占用桌显示公司名 + CEO头像）
+- ✅ 点击空桌 → 创建公司弹窗（自动生成CEO）
+- ✅ 公司面板（成员列表 + 统计卡片 + 返回园区）
+- ✅ Web 构建 + Tauri 桌面应用编译（.app + .dmg）
 
-As a user, I open ClawInc and see an infinite dark canvas with preset tables distributed across it, so I understand this is a space where I can create and manage companies.
+---
 
-**Why this priority**: This is the foundational experience — without it, users cannot orient themselves in the product.
+## Phase 2 新功能
 
-**Independent Test**: Open the app → canvas renders with visible grid background → 6–12 tables visible in initial viewport → empty tables show dashed "待入驻" border → occupied tables show company name + CEO avatar.
+### User Story 5 — 状态持久化 (Priority: P1)
+
+As a user, I close and reopen the app, and all my companies and agents are still there, so I don't lose progress.
+
+**Why this priority**: Without persistence, every app restart wipes all data. Unacceptable for a "孵化器" product.
+
+**Independent Test**: Create a company → close the app → reopen → company still visible on canvas → click it → all agents and data intact.
 
 **Acceptance Scenarios**:
-1. **Given** the app launches, **When** the park view loads, **Then** a dark grid canvas with pan/zoom (Figma-like) is visible.
-2. **Given** tables are rendered, **When** a table is empty, **Then** it shows a dashed border with a subtle "+" icon.
-3. **Given** a table is occupied, **When** I look at it, **Then** I see company name, logo placeholder, and CEO avatar.
+1. **Given** the app launches, **When** a persisted state file exists, **Then** the park store is hydrated from that file instead of initial state.
+2. **Given** the user creates a company/agent, **When** the state changes, **Then** the state is automatically saved to the filesystem within 1 second.
+3. **Given** the state file is corrupted, **When** the app launches, **Then** it falls back to initial state and logs an error.
+4. **Given** the app runs in web mode, **When** it loads, **Then** it uses localStorage for persistence (Tauri filesystem only available in desktop).
+
+**Technical Approach**:
+- Use `@tauri-apps/plugin-fs` for Tauri desktop (Rust `tauri-plugin-fs` crate already in Cargo.toml but plugin not registered)
+- Use `localStorage` for web fallback
+- Persist full `ParkState` (tables, companies, agents, selectedTableId, view, canvasOffset, canvasZoom)
+- Debounce saves by 500ms to avoid excessive writes
 
 ---
 
-### User Story 2 — Create a Company (Priority: P1)
+### User Story 6 — Agent Thinking Ripple 动画 (Priority: P2)
 
-As a user, I click an empty table and create a company, so I can start building my digital enterprise.
+As a user, when an agent is "thinking", I see a pulsing ripple animation on their status indicator, so I know they're actively working.
 
-**Why this priority**: Company creation is the core loop entry point — without this, nothing else matters.
+**Why this priority**: Status indication is critical for "living" agent feel. Thinking without animation looks broken.
 
-**Independent Test**: Click empty table → "创建公司" modal appears → enter "云爪科技" → confirm → table becomes occupied showing "云爪科技" + CEO avatar → company panel opens automatically.
+**Independent Test**: Set an agent status to `thinking` → blue ripple/pulse animation visible on the status dot → set to `idle` → animation stops.
 
 **Acceptance Scenarios**:
-1. **Given** I am on the park view, **When** I click an empty table, **Then** a "创建公司" dialog/modal opens with a company name input.
-2. **Given** the dialog is open, **When** I enter a company name and confirm, **Then** the table status changes to occupied, a CEO agent is auto-generated, and the company management panel opens.
-3. **Given** a company is created, **When** I look at its table, **Then** it shows the company name, a default logo, and the CEO's avatar.
-4. **Given** a company is created, **When** I return to the park view, **Then** the other empty tables remain unchanged.
+1. **Given** an agent's status is `thinking`, **When** I look at their avatar in the table or company panel, **Then** a blue pulsing ring animation is visible.
+2. **Given** an agent's status changes to `idle` or `offline`, **When** I look at them, **Then** the animation stops and only the static dot is shown.
+3. **Given** the app has multiple thinking agents, **When** I view them, **Then** each has its own independent animation.
+
+**Technical Approach**:
+- CSS `@keyframes` ripple animation on the status indicator element
+- Keyframes: scale 1→1.8, opacity 1→0, repeat infinite, duration 1.4s
+- Color: `#60aaff` matching the thinking status color
+- Apply in `TableNode.tsx` for canvas view and `CompanyPanel.tsx` for agent list
 
 ---
 
-### User Story 3 — View Company Panel (Priority: P1)
+### User Story 7 — 动态连接线 (Priority: P2)
 
-As a user, I click an occupied table and see the company management panel with agent roster, so I understand my company's current state.
+As a user, I see animated SVG connection lines from the CEO to other agents in the company panel, so I understand the organizational hierarchy.
 
-**Why this priority**: The panel is the primary interface for all company operations — hiring, firing, group management.
+**Why this priority**: Visual hierarchy makes the company feel alive and structured.
 
-**Independent Test**: Click occupied table → company panel opens with left sidebar (agent list with CEO at top) and main area (company stats:沟通摘要, 任务量, 活跃度, 每日进展).
+**Independent Test**: Open company panel with 3+ agents → animated dashed SVG lines animate from CEO to each other agent → lines have a "flowing" animation.
 
 **Acceptance Scenarios**:
-1. **Given** a company exists, **When** I click its table, **Then** a back-to-park breadcrumb appears and the company panel renders with agent list sidebar and stats area.
-2. **Given** the company panel is open, **When** I look at the agent list, **Then** the CEO agent is listed first with a crown icon, followed by hired agents.
-3. **Given** the company panel is open, **When** I look at the stats area, **Then** I see placeholder cards for 沟通摘要, 任务量, 活跃度, and 每日进展 (empty state until agents perform work).
+1. **Given** a company has a CEO and at least one other agent, **When** the company panel opens, **Then** SVG lines animate from CEO to each other agent.
+2. **Given** a company only has a CEO, **When** the panel opens, **Then** no lines are drawn.
+3. **Given** agents are added/removed, **When** the agent list changes, **Then** the SVG lines update to reflect the new topology.
+4. **Given** the panel is open, **When** I resize the window, **Then** the lines reposition correctly.
+
+**Technical Approach**:
+- SVG overlay layer in `CompanyPanel.tsx`
+- Position agents absolutely in a flex/grid layout, use `getBoundingClientRect()` to get pixel coordinates
+- Lines: SVG `<path>` with `stroke-dasharray` + `stroke-dashoffset` animation for "flowing" effect
+- Dashed line style, color `#4a4a8a`, animated offset
 
 ---
 
-### User Story 4 — Return to Park (Priority: P2)
+## Implementation Plan
 
-As a user, I want to navigate back to the park view from a company panel, so I can manage multiple companies.
+1. **Persistence**:
+   - Add `tauri-plugin-fs` to Cargo.toml dependencies
+   - Register plugin in `src-tauri/src/lib.rs`
+   - Add `fs` scope in Tauri capabilities config
+   - Create `persistence.ts` utility (auto-detect Tauri vs web)
+   - Integrate into `useParkStore` with subscribe + debounce
 
-**Why this priority**: Multi-company management requires reliable navigation between park and company contexts.
+2. **Ripple Animation**:
+   - Add CSS keyframes to `index.css`
+   - Update `TableNode.tsx` status dot with animation class
+   - Update `CompanyPanel.tsx` status dot with animation class
 
-**Independent Test**: In company panel, click "← 返回园区" → park view renders with all tables in their current state.
-
-**Acceptance Scenarios**:
-1. **Given** I am in a company panel, **When** I click the back button, **Then** I return to the park view and all table states are preserved.
+3. **Dynamic Connection Lines**:
+   - Add SVG layer in `CompanyPanel.tsx`
+   - Calculate agent positions after render (useEffect + setTimeout trick)
+   - Draw animated `<path>` elements
 
 ---
 
-### Edge Cases
+## Files to Modify
 
-- What happens when the user tries to create a company with an empty name? → Show validation error, do not create.
-- What happens when all tables are occupied? → Show "园区已满" indicator; no additional companies can be created in Phase 1.
-- What happens when the CEO agent fails to generate? → Show error toast; table remains in empty state.
-- What happens if the canvas is panned far away from any tables? → Canvas supports edge pan-back; tables are always reachable.
-
----
-
-## Requirements
-
-### Functional Requirements
-
-- **FR-001**: System MUST render an infinite pan/zoom canvas with dark industrial grid background.
-- **FR-002**: System MUST display 6–12 preset table positions on the canvas at startup.
-- **FR-003**: System MUST distinguish empty tables (dashed border + "+" icon) from occupied tables (company info displayed).
-- **FR-004**: System MUST allow clicking an empty table to open a "创建公司" dialog.
-- **FR-005**: System MUST auto-generate a CEO agent with a random name and avatar when a company is created.
-- **FR-006**: System MUST persist park state (tables, companies, agents) across app restarts using Tauri's filesystem API.
-- **FR-007**: System MUST open company panel (with agent list + stats area) when clicking an occupied table.
-- **FR-008**: System MUST navigate back to park view via a back button in the company panel.
-- **FR-009**: Agent status MUST be one of: `thinking` (with ripple animation), `idle` (static), `offline` (greyed out).
-- **FR-010**: System MUST show SVG animated connection lines from CEO to agents when a task is dispatched (Phase 1: static placeholder lines).
-- **FR-011**: The app MUST run as both a web app (Vite dev server, port 5173) and a desktop app (Tauri).
-- **FR-012**: All entity state (Park, Table, Company, Agent, Group) MUST be stored in a Zustand store (`useParkStore`).
-
-### Key Entities
-
-- **Park**: The root canvas container. Contains an array of Tables. Has a fixed grid background.
-- **Table**: Represents one company's slot. Fields: `id` (UUID), `status` (empty | occupied), `companyId` (if occupied).
-- **Company**: A business unit. Fields: `id`, `name`, `tableId`, `ceoId`, `agents[]`, `groups[]`, `createdAt`.
-- **Agent**: A digital employee. Fields: `id`, `name`, `role`, `avatar`, `status` (thinking | idle | offline), `companyId`.
-- **Group**: A team chat. Fields: `id`, `name`, `companyId`, `memberIds[]`.
+- `src-tauri/Cargo.toml` — add `tauri-plugin-fs` dependency
+- `src-tauri/src/lib.rs` — register fs plugin
+- `src-tauri/capabilities/default.json` — add fs scope
+- `src/store/useParkStore.ts` — persistence integration
+- `src/components/TableNode.tsx` — ripple animation
+- `src/components/CompanyPanel.tsx` — ripple + dynamic lines
+- `src/index.css` — ripple keyframes
+- `SPEC.md` — this file
 
 ---
 
 ## Success Criteria
 
-### Measurable Outcomes
-
-- **SC-001**: User can create a company and see it rendered on the canvas within 10 seconds of clicking "确认".
-- **SC-002**: Company panel displays within 500ms of clicking an occupied table.
-- **SC-003**: Canvas supports smooth pan (60fps) and zoom without layout jank.
-- **SC-004**: App state persists correctly across a full restart (companies, agents, tables all restored).
-- **SC-005**: Both `npm run dev` (web) and `npm run tauri dev` (desktop) build and launch without errors.
-- **SC-006**: Phase 1 delivers a working park view + company creation + company panel as a coherent user journey.
+- **SC-007**: Company created → app restarted → company still present on canvas (persistence)
+- **SC-008**: Agent with `thinking` status shows pulsing blue ring animation
+- **SC-009**: Company panel with CEO + agents shows animated connection lines
+- **SC-010**: Both `npm run dev` and `npm run tauri dev` work without errors

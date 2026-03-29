@@ -1,4 +1,3 @@
-
 import type { Table } from '../types';
 import { useParkStore } from '../store/useParkStore';
 
@@ -102,20 +101,25 @@ export default function TableNode({ table, offset, zoom, onClick }: Props) {
           }}>
             {ceo?.name ?? 'CEO'}
           </div>
-          {/* Status dot */}
+          {/* Status indicator with ripple */}
           {ceo && (
-            <div style={{
-              position: 'absolute',
-              bottom: 8 * zoom,
-              right: 8 * zoom,
-              width: 8 * zoom,
-              height: 8 * zoom,
-              borderRadius: '50%',
-              background: ceo.status === 'thinking' ? '#60aaff'
-                : ceo.status === 'idle' ? '#4ade80'
-                : '#555',
-              boxShadow: ceo.status === 'thinking' ? `0 0 ${6 * zoom}px #60aaff` : 'none',
-            }} />
+            <div
+              className={`agent-status-dot ${ceo.status}`}
+              style={{
+                position: 'absolute',
+                bottom: 8 * zoom,
+                right: 8 * zoom,
+              }}
+            >
+              {ceo.status === 'thinking' && <div className="ripple-ring" />}
+              <div
+                className="status-core"
+                style={{
+                  width: 8 * zoom,
+                  height: 8 * zoom,
+                }}
+              />
+            </div>
           )}
         </>
       )}

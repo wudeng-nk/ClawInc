@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
 import type { Agent, Company, ParkState, Table } from '../types';
+import { saveState, loadState, type PersistedState } from '../utils/persistence';
 
 const CEO_FIRST_NAMES = ['阿尔瓦', '塞巴斯', '米开朗', '利昂', '艾琳', '洛奇', '薇拉', '诺亚', '艾登', '珊娜'];
 const CEO_LAST_NAMES = ['·洛克菲勒', '·斯特恩', '·克莱因', '·贝尔蒙', '·格兰特', '·文森特', '·艾什', '·诺克斯', '·雷顿', '·谢菲尔德'];
@@ -23,18 +24,20 @@ function generateCEO(companyId: string): Agent {
   };
 }
 
-const INITIAL_TABLES: Table[] = [
-  { id: uuid(), status: 'empty', x: 200, y: 200 },
-  { id: uuid(), status: 'empty', x: 500, y: 150 },
-  { id: uuid(), status: 'empty', x: 800, y: 200 },
-  { id: uuid(), status: 'empty', x: 350, y: 450 },
-  { id: uuid(), status: 'empty', x: 650, y: 420 },
-  { id: uuid(), status: 'empty', x: 950, y: 450 },
-  { id: uuid(), status: 'empty', x: 150, y: 700 },
-  { id: uuid(), status: 'empty', x: 500, y: 680 },
-  { id: uuid(), status: 'empty', x: 820, y: 700 },
-  { id: uuid(), status: 'empty', x: 1100, y: 300 },
-];
+function makeInitialTables(): Table[] {
+  return [
+    { id: uuid(), status: 'empty', x: 200, y: 200 },
+    { id: uuid(), status: 'empty', x: 500, y: 150 },
+    { id: uuid(), status: 'empty', x: 800, y: 200 },
+    { id: uuid(), status: 'empty', x: 350, y: 450 },
+    { id: uuid(), status: 'empty', x: 650, y: 420 },
+    { id: uuid(), status: 'empty', x: 950, y: 450 },
+    { id: uuid(), status: 'empty', x: 150, y: 700 },
+    { id: uuid(), status: 'empty', x: 500, y: 680 },
+    { id: uuid(), status: 'empty', x: 820, y: 700 },
+    { id: uuid(), status: 'empty', x: 1100, y: 300 },
+  ];
+}
 
 interface ParkActions {
   createCompany: (tableId: string, name: string) => Company;
@@ -45,12 +48,14 @@ interface ParkActions {
   getCompanyByTableId: (tableId: string) => Company | undefined;
   getTableById: (tableId: string) => Table | undefined;
   getAgentsByCompanyId: (companyId: string) => Agent[];
+  hydrate: (persisted: PersistedState) => void;
+  triggerPersist: () => void;
 }
 
 export type ParkStore = ParkState & ParkActions;
 
 export const useParkStore = create<ParkStore>((set, get) => ({
-  tables: INITIAL_TABLES,
+  tables: makeInitialTables(),
   companies: [],
   agents: [],
   selectedTableId: null,
@@ -81,6 +86,8 @@ export const useParkStore = create<ParkStore>((set, get) => ({
       view: 'company' as const,
     }));
 
+    // Trigger persist after state change
+    get().triggerPersist();
     return company;
   },
 
@@ -94,9 +101,20 @@ export const useParkStore = create<ParkStore>((set, get) => ({
     }
   },
 
-  setView: (view) => set({ view }),
-  setCanvasOffset: (offset) => set({ canvasOffset: offset }),
-  setCanvasZoom: (zoom) => set({ canvasZoom: Math.max(0.3, Math.min(2, zoom)) }),
+  setView: (view) => {
+    set({ view });
+    get().triggerPersist();
+  },
+
+  setCanvasOffset: (offset) => {
+    set({ canvasOffset: offset });
+    get().triggerPersist();
+  },
+
+  setCanvasZoom: (zoom) => {
+    set({ canvasZoom: Math.max(0.3, Math.min(2, zoom)) });
+    get().triggerPersist();
+  },
 
   getCompanyByTableId: (tableId) => {
     const table = get().tables.find((t) => t.id === tableId);
@@ -107,4 +125,36 @@ export const useParkStore = create<ParkStore>((set, get) => ({
   getTableById: (tableId) => get().tables.find((t) => t.id === tableId),
 
   getAgentsByCompanyId: (companyId) => get().agents.filter((a) => a.companyId === companyId),
+
+  hydrate: (persisted) => {
+    set({
+      tables: persisted.tables as Table[],
+      companies: persisted.companies as Company[],
+      agents: persisted.agents as Agent[],
+      selectedTableId: persisted.selectedTableId,
+      view: persisted.view,
+      canvasOffset: persisted.canvasOffset,
+      canvasZoom: persisted.canvasZoom,
+    });
+  },
+
+  triggerPersist: () => {
+    const state = get();
+    saveState({
+      tables: state.tables,
+      companies: state.companies,
+      agents: state.agents,
+      selectedTableId: state.selectedTableId,
+      view: state.view,
+      canvasOffset: state.canvasOffset,
+      canvasZoom: state.canvasZoom,
+    });
+  },
 }));
+
+// Auto-initialize: try loading persisted state
+loadState().then((persisted) => {
+  if (persisted) {
+    useParkStore.getState().hydrate(persisted);
+  }
+});
