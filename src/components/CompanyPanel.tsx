@@ -60,6 +60,11 @@ export default function CompanyPanel() {
       <div className="status-core" style={{ width: '100%', height: '100%', borderRadius: '50%', background: statusColor(status), position: 'relative', zIndex: 1 }} />
     </div>
   );
+<<<<<<< Updated upstream
+=======
+
+  const selectedAgent = selectedForFire ? companyAgents.find(a => a.id === selectedForFire) : null;
+>>>>>>> Stashed changes
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#0a0a14', display: 'flex', flexDirection: 'column', fontFamily: 'system-ui, sans-serif', color: '#e0e0f0', overflow: 'hidden' }}>
       {/* Header */}
@@ -179,11 +184,36 @@ export default function CompanyPanel() {
         </div>
       </div>
 
+<<<<<<< Updated upstream
       {/* SVG line flow animation */}
       <style>{`
         .connection-line { animation: flowLine 2s linear infinite; }
         @keyframes flowLine { from { stroke-dashoffset: 20; } to { stroke-dashoffset: 0; } }
       `}</style>
+=======
+      {/* Fire confirmation modal */}
+      {selectedAgent && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedForFire(null); }}>
+          <div style={{ background: '#12122a', border: '1px solid #3a1a1a', borderRadius: 16, padding: '28px 32px', width: 340, textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.6)', fontFamily: 'system-ui, sans-serif' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>{selectedAgent.avatar}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#e0e0f0', marginBottom: 8 }}>{selectedAgent.name}</div>
+            <div style={{ fontSize: 13, color: '#6a6a9a', marginBottom: 24 }}>{selectedAgent.role}</div>
+            <div style={{ fontSize: 14, color: '#ff8080', marginBottom: 24, padding: '12px 16px', background: '#1a0808', borderRadius: 8, border: '1px solid #3a1a1a' }}>确认解雇此成员？此操作不可撤销。</div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button onClick={() => setSelectedForFire(null)} style={{ padding: '10px 24px', background: 'transparent', border: '1px solid #3a3a6c', borderRadius: 8, color: '#a0a0c0', fontSize: 14, cursor: 'pointer' }}>取消</button>
+              <button onClick={() => { removeAgent(selectedAgent.id); setSelectedForFire(null); setFireMode(false); }}
+                style={{ padding: '10px 24px', background: '#cc3030', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>确认解雇</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hire modal */}
+      {showHireModal && <HireAgentModal companyId={company.id} onClose={() => setShowHireModal(false)} />}
+
+      <style>{`.connection-line { animation: flowLine 2s linear infinite; } @keyframes flowLine { from { stroke-dashoffset: 20; } to { stroke-dashoffset: 0; } }`}</style>
+>>>>>>> Stashed changes
     </div>
   );
 }

@@ -17,6 +17,7 @@ export default function ParkCanvas() {
     setCanvasOffset,
     setCanvasZoom,
     view,
+    setView,
     selectTable,
   } = useParkStore();
 
@@ -106,6 +107,7 @@ export default function ParkCanvas() {
         <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 1 }}>云爪孵化器</div>
         <div style={{ fontSize: 12, color: '#6b6b8a', marginTop: 2 }}>ClawInc Park · Phase 2</div>
       </div>
+      <button onClick={() => setView('talent')} style={{ position: 'absolute', top: 24, right: 32, zIndex: 10, padding: '8px 16px', background: '#12122a', border: '1px solid #3a3a6c', borderRadius: 8, color: '#a0a0c0', fontSize: 13, cursor: 'pointer', fontFamily: 'system-ui, sans-serif' }}>🏪 人才市场</button>
 
       {/* Zoom indicator */}
       <div style={{
