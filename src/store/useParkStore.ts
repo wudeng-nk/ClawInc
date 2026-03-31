@@ -39,8 +39,16 @@ function makeInitialTables(): Table[] {
   ];
 }
 
+export interface HireAgentInput {
+  name: string;
+  role: string;
+  avatar: string;
+}
+
 interface ParkActions {
   createCompany: (tableId: string, name: string) => Company;
+  createAgent: (companyId: string, input: HireAgentInput) => Agent;
+  removeAgent: (agentId: string) => void;
   selectTable: (tableId: string | null) => void;
   setView: (view: 'park' | 'company') => void;
   setCanvasOffset: (offset: { x: number; y: number }) => void;
@@ -86,9 +94,37 @@ export const useParkStore = create<ParkStore>((set, get) => ({
       view: 'company' as const,
     }));
 
-    // Trigger persist after state change
     get().triggerPersist();
     return company;
+  },
+
+  createAgent: (companyId, { name, role, avatar }) => {
+    const agent: Agent = {
+      id: uuid(),
+      name,
+      role,
+      avatar,
+      status: 'idle',
+      companyId,
+    };
+
+    set((state) => ({
+      agents: [...state.agents, agent],
+    }));
+
+    get().triggerPersist();
+    return agent;
+  },
+
+  removeAgent: (agentId) => {
+    const agent = get().agents.find((a) => a.id === agentId);
+    if (!agent) return;
+
+    set((state) => ({
+      agents: state.agents.filter((a) => a.id !== agentId),
+    }));
+
+    get().triggerPersist();
   },
 
   selectTable: (tableId) => {
@@ -152,7 +188,6 @@ export const useParkStore = create<ParkStore>((set, get) => ({
   },
 }));
 
-// Auto-initialize: try loading persisted state
 loadState().then((persisted) => {
   if (persisted) {
     useParkStore.getState().hydrate(persisted);
