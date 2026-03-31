@@ -125,3 +125,60 @@ As a user, I see animated SVG connection lines from the CEO to other agents in t
 - **SC-008**: Agent with `thinking` status shows pulsing blue ring animation
 - **SC-009**: Company panel with CEO + agents shows animated connection lines
 - **SC-010**: Both `npm run dev` and `npm run tauri dev` work without errors
+
+---
+
+## Phase 2 SQLite 持久化 (补充)
+
+**完成日期**: 2026-03-30
+
+### 技术实现
+
+**DB 位置**: `~/Library/Application Support/com.clawinc.ClawInc/clawinc.db`
+
+**Schema**:
+
+```sql
+CREATE TABLE companies (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  table_id    TEXT NOT NULL,   -- 对应哪张桌子
+  ceo_id      TEXT NOT NULL,   -- CEO agent id
+  agent_workspace TEXT NOT NULL, -- OpenClaw agent workspace 路径
+  created_at  INTEGER NOT NULL
+);
+
+CREATE TABLE agents (
+  id          TEXT PRIMARY KEY,
+  company_id  TEXT NOT NULL REFERENCES companies(id),
+  name        TEXT NOT NULL,
+  role        TEXT NOT NULL,
+  avatar      TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'idle',
+  session_key TEXT,            -- OpenClaw session key (nullable)
+  created_at  INTEGER NOT NULL
+);
+
+CREATE TABLE tables (
+  id    TEXT PRIMARY KEY,
+  x     INTEGER NOT NULL,
+  y     INTEGER NOT NULL
+);
+```
+
+**Tauri Commands** (src-tauri/src/commands.rs):
+- `init_tables(tables)` — 首次运行时初始化桌子
+- `list_tables()` → `TableRecord[]`
+- `create_company(input)` → `{ company, ceo }` — 写 DB + 调用 `openclaw agents add`
+- `list_companies()` → `{ companies: CompanyWithAgents[] }`
+- `delete_company(id)`
+- `create_agent(input)` → `Agent`
+- `delete_agent(id)`
+- `update_agent_status(id, status)`
+
+**OpenClaw Agent Spawn**: 每个公司在 `~/.openclaw/workspace-clawinc/companies/<company_id>/` 创建独立 agent workspace（通过 `openclaw agents add --workspace ... --non-interactive`）。该 workspace 会在收到消息时自动创建 session。
+
+### 待验证
+
+- [ ] 重启 app 后公司 + 成员数据依然存在
+- [ ] 重新打开占用桌子，数据正确恢复

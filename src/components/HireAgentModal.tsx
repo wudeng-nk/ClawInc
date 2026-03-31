@@ -1,170 +1,84 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useParkStore } from '../store/useParkStore';
+import type { MarketAgent } from '../types';
 
-const AVATAR_OPTIONS = [
-  '🦊', '🐯', '🐺', '🦅', '🐉', '🐲', '🦉', '🐰',
-  '🐸', '🦋', '🌟', '⚡', '🔥', '💎', '🎯', '🚀',
-];
-
-interface Props {
-  onConfirm: (name: string, role: string, avatar: string) => void;
-  onCancel: () => void;
+function StatusDot({ status }: { status: string }) {
+  const color = status === 'thinking' ? '#60aaff' : status === 'idle' ? '#4ade80' : '#555';
+  return <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: color }} />;
 }
 
-export default function HireAgentModal({ onConfirm, onCancel }: Props) {
-  const [name, setName] = useState('');
-  const [role, setRole] = useState('');
-  const [avatar, setAvatar] = useState('');
+interface Props {
+  companyId: string;
+  onClose: () => void;
+}
 
-  const canConfirm = name.trim().length > 0 && role.trim().length > 0 && avatar.length > 0;
+export default function HireAgentModal({ companyId, onClose }: Props) {
+  const { agents, companies, hireAgent, setView } = useParkStore();
+  const [selected, setSelected] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleConfirm = () => {
-    if (!canConfirm) return;
-    onConfirm(name.trim(), role.trim(), avatar);
+  const company = companies.find(c => c.id === companyId);
+
+  const availableAgents = useMemo<MarketAgent[]>(() => {
+    return agents
+      .filter(a => !a.companyId && !a.isCeo)
+      .map(a => ({ ...a, companyName: undefined }));
+  }, [agents]);
+
+  const handleConfirm = async () => {
+    if (!selected) { setError('请选择一名候选人'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      await hireAgent(selected, companyId);
+      onClose();
+      setView('company');
+    } catch (err) {
+      setError('入职失败: ' + String(err));
+      setLoading(false);
+    }
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.7)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-      }}
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
-    >
-      <div
-        style={{
-          background: '#12122a',
-          border: '1px solid #2a2a5c',
-          borderRadius: 16,
-          padding: '28px 32px',
-          width: 400,
-          boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
-          fontFamily: 'system-ui, sans-serif',
-        }}
-      >
-        {/* Title */}
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#e0e0f0', marginBottom: 24 }}>
-          入职新成员
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, fontFamily: 'system-ui, sans-serif' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: '#12122a', border: '1px solid #3a3a6c', borderRadius: 16, padding: '28px 32px', width: 480, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}>
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#e0e0f0' }}>选择入职员工</div>
+          <div style={{ fontSize: 12, color: '#6a6a9a', marginTop: 2 }}>为 {company?.name ?? '公司'} 招聘成员 · 待业人才 {availableAgents.length} 人</div>
         </div>
 
-        {/* Name */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 12, color: '#6a6a9a', marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-            姓名
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="例如：张三"
-            style={{
-              width: '100%',
-              background: '#0a0a14',
-              border: '1px solid #2a2a4c',
-              borderRadius: 8,
-              padding: '10px 14px',
-              fontSize: 14,
-              color: '#e0e0f0',
-              outline: 'none',
-              boxSizing: 'border-box',
-            }}
-            onFocus={(e) => (e.target.style.borderColor = '#60aaff')}
-            onBlur={(e) => (e.target.style.borderColor = '#2a2a4c')}
-          />
-        </div>
-
-        {/* Role */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 12, color: '#6a6a9a', marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-            职位
-          </label>
-          <input
-            type="text"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            placeholder="例如：工程师"
-            style={{
-              width: '100%',
-              background: '#0a0a14',
-              border: '1px solid #2a2a4c',
-              borderRadius: 8,
-              padding: '10px 14px',
-              fontSize: 14,
-              color: '#e0e0f0',
-              outline: 'none',
-              boxSizing: 'border-box',
-            }}
-            onFocus={(e) => (e.target.style.borderColor = '#60aaff')}
-            onBlur={(e) => (e.target.style.borderColor = '#2a2a4c')}
-          />
-        </div>
-
-        {/* Avatar */}
-        <div style={{ marginBottom: 24 }}>
-          <label style={{ display: 'block', fontSize: 12, color: '#6a6a9a', marginBottom: 8, fontWeight: 600, letterSpacing: 1 }}>
-            头像
-          </label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {AVATAR_OPTIONS.map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => setAvatar(emoji)}
-                style={{
-                  width: 44,
-                  height: 44,
-                  fontSize: 22,
-                  background: avatar === emoji ? '#1e2a4a' : '#0a0a14',
-                  border: avatar === emoji ? '2px solid #60aaff' : '1px solid #2a2a4c',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {emoji}
-              </button>
+        {availableAgents.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: '#4a4a7a', flex: 1 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+            <div>暂无待业人才</div>
+            <div style={{ fontSize: 12, marginTop: 8 }}>可前往人才市场招聘新人</div>
+          </div>
+        ) : (
+          <div style={{ flex: 1, overflowY: 'auto', marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320 }}>
+            {availableAgents.map(agent => (
+              <div key={agent.id} onClick={() => setSelected(agent.id)} style={{ padding: '12px 16px', background: selected === agent.id ? '#1a2a4a' : '#0d0d20', border: '1px solid ' + (selected === agent.id ? '#3a6aff' : '#2a2a4a'), borderRadius: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.15s' }}>
+                <div style={{ fontSize: 28 }}>{agent.avatar}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {agent.name}
+                    <StatusDot status={agent.status} />
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6a6a9a', marginTop: 1 }}>{agent.role}</div>
+                  {agent.skills && agent.skills.length > 0 && (
+                    <div style={{ fontSize: 11, color: '#60aaff', marginTop: 3 }}>{agent.skills.join(' · ')}</div>
+                  )}
+                </div>
+                {selected === agent.id && <div style={{ color: '#60aaff', fontSize: 18 }}>✓</div>}
+              </div>
             ))}
           </div>
-        </div>
+        )}
 
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-          <button
-            onClick={onCancel}
-            style={{
-              padding: '10px 20px',
-              background: 'transparent',
-              border: '1px solid #3a3a6c',
-              borderRadius: 8,
-              color: '#a0a0c0',
-              fontSize: 14,
-              cursor: 'pointer',
-            }}
-          >
-            取消
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={!canConfirm}
-            style={{
-              padding: '10px 20px',
-              background: canConfirm ? '#60aaff' : '#1a1a3a',
-              border: 'none',
-              borderRadius: 8,
-              color: canConfirm ? '#0a0a14' : '#4a4a6a',
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: canConfirm ? 'pointer' : 'not-allowed',
-            }}
-          >
-            确认入职
-          </button>
+        {error && <div style={{ color: '#ff6666', fontSize: 12, marginTop: 12 }}>{error}</div>}
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 }}>
+          <button onClick={onClose} style={{ padding: '9px 20px', background: 'transparent', border: '1px solid #3a3a6c', borderRadius: 8, color: '#a0a0c0', fontSize: 13, cursor: 'pointer' }}>取消</button>
+          <button onClick={handleConfirm} disabled={!selected || loading} style={{ padding: '9px 24px', background: selected ? '#1a2a4a' : '#1a1a2a', border: '1px solid ' + (selected ? '#3a6aff' : '#2a2a3a'), borderRadius: 8, color: selected ? '#60aaff' : '#4a4a6a', fontSize: 13, fontWeight: 600, cursor: selected ? 'pointer' : 'not-allowed' }}>{loading ? '入职中...' : '确认入职'}</button>
         </div>
       </div>
     </div>
