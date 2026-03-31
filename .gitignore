@@ -32,3 +32,7 @@ pnpm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# Local tool configs (not for sharing)
+.claude/
+.specify/
