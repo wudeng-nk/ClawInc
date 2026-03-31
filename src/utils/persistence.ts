@@ -1,13 +1,28 @@
-import { writeTextFile, readTextFile, mkdir, exists } from '@tauri-apps/plugin-fs';
-import { appConfigDir } from '@tauri-apps/api/path';
+// Dynamic import guard for Tauri APIs - only loaded when in Tauri context
+let tauriFs: typeof import('@tauri-apps/plugin-fs') | null = null;
+let tauriPath: typeof import('@tauri-apps/api/path') | null = null;
+
+async function loadTauriApis() {
+  if (typeof window === 'undefined' || !('__TAURI__' in window)) {
+    return false;
+  }
+  if (!tauriFs) {
+    try {
+      tauriFs = await import('@tauri-apps/plugin-fs');
+      tauriPath = await import('@tauri-apps/api/path');
+      return true;
+    } catch {
+      console.warn('[persistence] Failed to load Tauri APIs, using localStorage');
+      return false;
+    }
+  }
+  return true;
+}
+
 
 const STATE_FILE = 'park-state.json';
 
 let writeTimer: ReturnType<typeof setTimeout> | null = null;
-
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
-}
 
 export type PersistedState = {
   tables: unknown[];
@@ -26,18 +41,24 @@ export async function saveState(state: PersistedState): Promise<void> {
   writeTimer = setTimeout(async () => {
     writeTimer = null;
     const json = JSON.stringify(state, null, 2);
-    if (isTauri()) {
+    
+    const hasTauri = await loadTauriApis();
+    if (hasTauri && tauriFs && tauriPath) {
       try {
-        const dir = await appConfigDir();
+        const dir = await tauriPath.appConfigDir();
         const filePath = dir + STATE_FILE;
-        const dirExists = await exists(dir);
+        const dirExists = await tauriFs.exists(dir);
         if (!dirExists) {
-          await mkdir(dir, { recursive: true });
+          await tauriFs.mkdir(dir, { recursive: true });
         }
-        await writeTextFile(filePath, json);
+        await tauriFs.writeTextFile(filePath, json);
         console.log('[persistence] State saved to', filePath);
       } catch (err) {
-        console.error('[persistence] Failed to save state:', err);
+        console.error('[persistence] Failed to save state (Tauri):', err);
+        // Fallback to localStorage
+        try {
+          localStorage.setItem('clawinc-park-state', json);
+        } catch {}
       }
     } else {
       try {
@@ -51,36 +72,45 @@ export async function saveState(state: PersistedState): Promise<void> {
 }
 
 export async function loadState(): Promise<PersistedState | null> {
-  if (isTauri()) {
+  const hasTauri = await loadTauriApis();
+  
+  if (hasTauri && tauriFs && tauriPath) {
     try {
-      const dir = await appConfigDir();
+      const dir = await tauriPath.appConfigDir();
       const filePath = dir + STATE_FILE;
-      const fileExists = await exists(filePath);
+      const fileExists = await tauriFs.exists(filePath);
       if (!fileExists) {
         console.log('[persistence] No persisted state file found (Tauri)');
-        return null;
+        // Try localStorage as fallback
+        return loadFromLocalStorage();
       }
-      const content = await readTextFile(filePath);
+      const content = await tauriFs.readTextFile(filePath);
       const parsed = JSON.parse(content) as PersistedState;
       console.log('[persistence] State loaded from', filePath);
       return parsed;
     } catch (err) {
-      console.error('[persistence] Failed to load state:', err);
-      return null;
+      console.error('[persistence] Failed to load state (Tauri):', err);
+      // Fallback to localStorage
+      return loadFromLocalStorage();
     }
   } else {
-    try {
-      const raw = localStorage.getItem('clawinc-park-state');
-      if (!raw) {
-        console.log('[persistence] No persisted state found (localStorage)');
-        return null;
-      }
-      const parsed = JSON.parse(raw) as PersistedState;
-      console.log('[persistence] State loaded from localStorage');
-      return parsed;
-    } catch (err) {
-      console.error('[persistence] Failed to load state (localStorage):', err);
-      return null;
-    }
+    return loadFromLocalStorage();
   }
 }
+
+function loadFromLocalStorage(): PersistedState | null {
+  try {
+    const raw = localStorage.getItem('clawinc-park-state');
+    if (!raw) {
+      console.log('[persistence] No persisted state found (localStorage)');
+      return null;
+    }
+    const parsed = JSON.parse(raw) as PersistedState;
+    console.log('[persistence] State loaded from localStorage');
+    return parsed;
+  } catch (err) {
+    console.error('[persistence] Failed to load state (localStorage):', err);
+    return null;
+  }
+}
+
