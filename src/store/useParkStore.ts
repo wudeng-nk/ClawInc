@@ -124,7 +124,20 @@ export const useParkStore = create<ParkStore>((set, get) => ({
       get().triggerPersist();
       return company;
     } else {
-      const ceo: Agent = { id: ceoId, name: ceoName, role: 'CEO', avatar: ceoAvatar, status: 'idle', companyId, isCeo: true };
+      // Web mode: create OpenClaw agent via Vite dev server proxy
+      try {
+        const res = await fetch('/api/spawn-agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspace: agentWorkspace, name }),
+        });
+        const result = await res.json();
+        if (!result.success) console.warn('[createCompany] spawn agent failed:', result.error);
+        else console.log('[createCompany] spawned OpenClaw agent:', ceoName);
+      } catch (e) {
+        console.warn('[createCompany] spawn agent error:', e);
+      }
+      const ceo: Agent = { id: ceoId, name: ceoName, role: 'CEO', avatar: ceoAvatar, status: 'idle', companyId, isCeo: true, openclawWorkspace: agentWorkspace };
       const company: Company = { id: companyId, name, tableId, ceoId, agents: [ceo], groups: [], createdAt: Date.now() };
       set((state) => ({
         tables: state.tables.map((t) => t.id === tableId ? { ...t, status: 'occupied' as const, companyId } : t),
