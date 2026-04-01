@@ -182,3 +182,31 @@ CREATE TABLE tables (
 
 - [ ] 重启 app 后公司 + 成员数据依然存在
 - [ ] 重新打开占用桌子，数据正确恢复
+
+### OpenClaw Agent 人才市场集成 (2026-04-01)
+
+**目标**: 人才市场（TalentMarketplace）的可用人才列表从 OpenClaw 全局配置中读取，而非仅依赖 ClawInc 本地 DB。
+
+**实现方案**:
+
+1. **Tauri Command** `list_openclaw_agents()`:
+   - 调用 `openclaw agents list --json` CLI 命令
+   - 解析 JSON 输出（跳过末尾插件日志行）
+   - 返回 `OpenClawAgent[]`，包含 `id`, `identityName`, `identityEmoji`, `workspace`, `model`, `isDefault`
+
+2. **前端** `src/utils/openclawAgents.ts`:
+   - `fetchOpenClawAgents()` 调用 Tauri command
+   - 返回 `OpenClawAgentConfig[]`，降级时返回空数组
+
+3. **TalentMarketplace**:
+   - `useEffect` 挂载时调用 `fetchOpenClawAgents()`
+   - OpenClaw agents 转换为 `MarketAgent`，带有 `🌐 OpenClaw` 标签
+   - 已在 ClawInc 本地 DB 注册的 agent（按 id 去重）不重复显示
+   - detail 弹窗显示 OpenClaw Workspace 路径
+   - "入职" 流程保持不变：将 agent id 写入 ClawInc DB，建立公司与 OpenClaw agent 的关联
+
+**文件变更**:
+- `src-tauri/src/commands.rs` — 新增 `list_openclaw_agents` 命令 + `OpenClawAgent` struct
+- `src-tauri/src/lib.rs` — 注册新命令
+- `src/utils/openclawAgents.ts` — 新文件，前端调用封装
+- `src/components/TalentMarketplace.tsx` — 接入 OpenClaw agent 列表
