@@ -36,6 +36,9 @@ pub struct AgentWithCompany {
 }
 
 fn spawn_openclaw_agent(workspace: &str, name: &str) -> Result<(), String> {
+    // Create the workspace directory if it does not exist
+    std::fs::create_dir_all(workspace)
+        .map_err(|e| format!("failed to create workspace dir {}: {}", workspace, e))?;
     let out = Command::new("openclaw")
         .args(["agents", "add", "--workspace", workspace, "--non-interactive", "--json", name])
         .output().map_err(|e| format!("openclaw spawn failed: {}", e))?;

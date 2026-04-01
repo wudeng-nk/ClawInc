@@ -1,14 +1,21 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { useParkStore } from '../store/useParkStore';
 import TableNode from './TableNode';
+import CompanyNameModal from './CompanyNameModal';
 import CreateCompanyModal from './CreateCompanyModal';
 
 export default function ParkCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [pendingTableId, setPendingTableId] = useState<string | null>(null);
+
+  // Step 1: ask company name
+  const [step1PendingTableId, setStep1PendingTableId] = useState<string | null>(null);
+  const [step1PendingName, setStep1PendingName] = useState<string>('');
+  const [showStep1, setShowStep1] = useState(false);
+
+  // Step 2: ask CEO name + avatar
+  const [showStep2, setShowStep2] = useState(false);
 
   const {
     tables,
@@ -54,19 +61,28 @@ export default function ParkCanvas() {
     const table = tables.find(t => t.id === tableId);
     if (!table) return;
     if (table.status === 'empty') {
-      setPendingTableId(tableId);
-      setShowCreateModal(true);
+      setStep1PendingTableId(tableId);
+      setShowStep1(true);
     } else {
       selectTable(tableId);
     }
   };
 
-  const handleCreateCompany = (name: string) => {
-    if (pendingTableId) {
-      useParkStore.getState().createCompany(pendingTableId, name);
+  // Step 1 confirmed → go to step 2
+  const handleStep1Confirm = (name: string) => {
+    setStep1PendingName(name);
+    setShowStep1(false);
+    setShowStep2(true);
+  };
+
+  // Step 2 confirmed → call createCompany with CEO info
+  const handleStep2Confirm = (ceoName: string, ceoAvatar: string) => {
+    if (step1PendingTableId) {
+      useParkStore.getState().createCompany(step1PendingTableId, step1PendingName, ceoName, ceoAvatar);
     }
-    setShowCreateModal(false);
-    setPendingTableId(null);
+    setShowStep2(false);
+    setStep1PendingTableId(null);
+    setStep1PendingName('');
   };
 
   if (view === 'company') return null;
@@ -134,12 +150,22 @@ export default function ParkCanvas() {
         />
       ))}
 
-      {showCreateModal && (
-        <CreateCompanyModal
-          onConfirm={handleCreateCompany}
+      {showStep1 && (
+        <CompanyNameModal
+          onConfirm={handleStep1Confirm}
           onCancel={() => {
-            setShowCreateModal(false);
-            setPendingTableId(null);
+            setShowStep1(false);
+            setStep1PendingTableId(null);
+          }}
+        />
+      )}
+
+      {showStep2 && (
+        <CreateCompanyModal
+          companyName={step1PendingName}
+          onConfirm={handleStep2Confirm}
+          onCancel={() => {
+            setShowStep2(false);
           }}
         />
       )}
