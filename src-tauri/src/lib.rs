@@ -34,6 +34,7 @@ pub fn run() {
             commands::hire_agent,
             commands::delete_agent,
             commands::update_agent_status,
+            commands::list_openclaw_agents,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

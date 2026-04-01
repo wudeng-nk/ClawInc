@@ -46,6 +46,48 @@ fn spawn_openclaw_agent(workspace: &str, name: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OpenClawAgent {
+    pub id: String,
+    pub identity_name: String,
+    pub identity_emoji: String,
+    pub workspace: String,
+    pub agent_dir: String,
+    pub model: String,
+    #[serde(default)]
+    pub bindings: usize,
+    #[serde(default)]
+    pub is_default: bool,
+}
+
+/// List all agents configured in OpenClaw (from `openclaw agents list --json`).
+/// Used by the talent market to show available talent from the OpenClaw agent pool.
+#[tauri::command]
+pub fn list_openclaw_agents() -> Result<Vec<OpenClawAgent>, String> {
+    let out = Command::new("openclaw")
+        .args(["agents", "list", "--json"])
+        .output()
+        .map_err(|e| format!("failed to run openclaw agents list: {}", e))?;
+
+    if !out.status.success() {
+        return Err(format!(
+            "openclaw agents list non-zero exit: {}",
+            String::from_utf8_lossy(&out.stderr)
+        ));
+    }
+
+    // Parse JSON array from stdout, skipping any trailing plugin log lines
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let trimmed = stdout.trim_end();
+    if let Some(start) = trimmed.find('[') {
+        let json_str = &trimmed[start..];
+        serde_json::from_str(json_str)
+            .map_err(|e| format!("failed to parse openclaw agents JSON: {}", e))
+    } else {
+        Err("no JSON array found in openclaw agents list output".to_string())
+    }
+}
+
 #[tauri::command]
 pub fn init_tables(db: State<'_, Arc<Database>>, tables: Vec<TableRecord>) -> Result<(), String> {
     let existing = db.list_tables().map_err(|e| e.to_string())?;
